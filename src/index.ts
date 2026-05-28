@@ -90,27 +90,20 @@ async function startHttp() {
 
       // New session — only on POST (initialization)
       if (req.method === "POST" && !sessionId) {
+        const sid = randomUUID();
         const transport = new StreamableHTTPServerTransport({
-          sessionIdGenerator: () => randomUUID(),
+          sessionIdGenerator: () => sid,
         });
 
+        transports.set(sid, transport);
+
         transport.onclose = () => {
-          const sid = [...transports.entries()].find(([, t]) => t === transport)?.[0];
-          if (sid) transports.delete(sid);
+          transports.delete(sid);
         };
 
-        const server = new McpServer({ name: "airtreks", version: "1.0.0" });
-        registerTools(server);
-        await server.connect(transport);
-
-        // Intercept the response to capture the session ID
-        const origWriteHead = res.writeHead.bind(res);
-        res.writeHead = function (statusCode: number, ...args: any[]) {
-          const headers = res.getHeaders();
-          const sid = headers["mcp-session-id"] as string | undefined;
-          if (sid) transports.set(sid, transport);
-          return origWriteHead(statusCode, ...args);
-        } as typeof res.writeHead;
+        const mcpServer = new McpServer({ name: "airtreks", version: "1.0.0" });
+        registerTools(mcpServer);
+        await mcpServer.connect(transport);
 
         await transport.handleRequest(req, res);
         return;
