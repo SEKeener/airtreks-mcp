@@ -3,7 +3,8 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
-import { createServer } from "node:http";
+import { createServer, IncomingMessage, ServerResponse } from "node:http";
+import { randomUUID } from "node:crypto";
 
 import { routeValidateSchema, routeValidate } from "./tools/route-validate.js";
 import { routeSuggestSchema, routeSuggest } from "./tools/route-suggest.js";
@@ -63,39 +64,73 @@ async function startStdio() {
 async function startHttp() {
   const PORT = parseInt(process.env.PORT || "3000", 10);
 
+  // Session store: sessionId -> { transport, server, lastUsed }
+  const sessions = new Map<string, { transport: StreamableHTTPServerTransport; server: McpServer; lastUsed: number }>();
+
+  // Clean up stale sessions every 5 minutes
+  setInterval(() => {
+    const now = Date.now();
+    for (const [sid, session] of sessions) {
+      if (now - session.lastUsed > 10 * 60 * 1000) { // 10 min TTL
+        session.transport.close().catch(() => {});
+        session.server.close().catch(() => {});
+        sessions.delete(sid);
+      }
+    }
+  }, 5 * 60 * 1000);
+
+  function createSession(): { sid: string; transport: StreamableHTTPServerTransport; server: McpServer } {
+    const sid = randomUUID();
+    const transport = new StreamableHTTPServerTransport({
+      sessionIdGenerator: () => sid,
+    });
+    const mcpServer = new McpServer({ name: "airtreks", version: "1.0.0" });
+    registerTools(mcpServer);
+
+    transport.onclose = () => sessions.delete(sid);
+    sessions.set(sid, { transport, server: mcpServer, lastUsed: Date.now() });
+
+    return { sid, transport, server: mcpServer };
+  }
+
   const httpServer = createServer(async (req, res) => {
     const url = new URL(req.url || "/", `http://localhost:${PORT}`);
 
     // Health check
     if (url.pathname === "/health") {
       res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ status: "ok", server: "airtreks-mcp", version: "1.0.0" }));
+      res.end(JSON.stringify({ status: "ok", server: "airtreks-mcp", version: "1.0.0", sessions: sessions.size }));
       return;
     }
 
-    // MCP endpoint — stateless: each request gets a fresh server+transport
+    // MCP endpoint
     if (url.pathname === "/mcp") {
-      if (req.method === "POST") {
-        const transport = new StreamableHTTPServerTransport({
-          sessionIdGenerator: undefined, // stateless
-        });
-
-        const mcpServer = new McpServer({ name: "airtreks", version: "1.0.0" });
-        registerTools(mcpServer);
-        await mcpServer.connect(transport);
-
-        await transport.handleRequest(req, res);
-
-        // Clean up after response
-        res.on("close", () => {
-          transport.close().catch(() => {});
-          mcpServer.close().catch(() => {});
-        });
+      if (req.method !== "POST" && req.method !== "GET" && req.method !== "DELETE") {
+        res.writeHead(405, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Method not allowed" }));
         return;
       }
 
-      res.writeHead(405, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: "Method not allowed — use POST" }));
+      const sessionId = req.headers["mcp-session-id"] as string | undefined;
+
+      // Existing session
+      if (sessionId && sessions.has(sessionId)) {
+        const session = sessions.get(sessionId)!;
+        session.lastUsed = Date.now();
+        await session.transport.handleRequest(req, res);
+        return;
+      }
+
+      // New session (POST without session ID = initialization)
+      if (req.method === "POST" && !sessionId) {
+        const { transport, server: mcpServer } = createSession();
+        await mcpServer.connect(transport);
+        await transport.handleRequest(req, res);
+        return;
+      }
+
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Invalid or expired session. Send an initialize request without a session ID to start a new session." }));
       return;
     }
 
