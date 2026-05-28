@@ -1,0 +1,26 @@
+{
+  "name": "airtreks-mcp",
+  "version": "1.0.0",
+  "description": "AirTreks MCP Server — complex flight routing intelligence for AI agents",
+  "type": "module",
+  "bin": {
+    "airtreks-mcp": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx src/index.ts",
+    "start": "node dist/index.js"
+  },
+  "keywords": ["mcp", "travel", "rtw", "airtreks"],
+  "author": "AirTreks",
+  "license": "ISC",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^25.9.1",
+    "tsx": "^4.22.3",
+    "typescript": "^6.0.3"
+  }
+}
