@@ -4,7 +4,6 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { createServer } from "node:http";
-import { randomUUID } from "node:crypto";
 
 import { routeValidateSchema, routeValidate } from "./tools/route-validate.js";
 import { routeSuggestSchema, routeSuggest } from "./tools/route-suggest.js";
@@ -64,9 +63,6 @@ async function startStdio() {
 async function startHttp() {
   const PORT = parseInt(process.env.PORT || "3000", 10);
 
-  // Track transports by session for stateful mode
-  const transports = new Map<string, StreamableHTTPServerTransport>();
-
   const httpServer = createServer(async (req, res) => {
     const url = new URL(req.url || "/", `http://localhost:${PORT}`);
 
@@ -77,40 +73,29 @@ async function startHttp() {
       return;
     }
 
-    // MCP endpoint
+    // MCP endpoint — stateless: each request gets a fresh server+transport
     if (url.pathname === "/mcp") {
-      // Check for existing session
-      const sessionId = req.headers["mcp-session-id"] as string | undefined;
-
-      if (sessionId && transports.has(sessionId)) {
-        const transport = transports.get(sessionId)!;
-        await transport.handleRequest(req, res);
-        return;
-      }
-
-      // New session — only on POST (initialization)
-      if (req.method === "POST" && !sessionId) {
-        const sid = randomUUID();
+      if (req.method === "POST") {
         const transport = new StreamableHTTPServerTransport({
-          sessionIdGenerator: () => sid,
+          sessionIdGenerator: undefined, // stateless
         });
-
-        transports.set(sid, transport);
-
-        transport.onclose = () => {
-          transports.delete(sid);
-        };
 
         const mcpServer = new McpServer({ name: "airtreks", version: "1.0.0" });
         registerTools(mcpServer);
         await mcpServer.connect(transport);
 
         await transport.handleRequest(req, res);
+
+        // Clean up after response
+        res.on("close", () => {
+          transport.close().catch(() => {});
+          mcpServer.close().catch(() => {});
+        });
         return;
       }
 
-      res.writeHead(400, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: "Bad request — missing or invalid session" }));
+      res.writeHead(405, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Method not allowed — use POST" }));
       return;
     }
 
