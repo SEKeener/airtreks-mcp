@@ -10,6 +10,7 @@ import { routeValidateSchema, routeValidate } from "./tools/route-validate.js";
 import { routeSuggestSchema, routeSuggest } from "./tools/route-suggest.js";
 import { hubCheckSchema, hubCheck } from "./tools/hub-check.js";
 import { fareProductMatchSchema, fareProductMatch } from "./tools/fare-product-match.js";
+import { customRouteBuildSchema, customRouteBuild } from "./tools/custom-route-build.js";
 
 function registerTools(server: McpServer) {
   server.tool(
@@ -45,6 +46,15 @@ function registerTools(server: McpServer) {
     fareProductMatchSchema,
     async (args) => ({
       content: [{ type: "text", text: JSON.stringify(fareProductMatch(args), null, 2) }],
+    })
+  );
+
+  server.tool(
+    "custom_route_build",
+    "Break a complex multi-city itinerary into individually-ticketable segments with carrier recommendations. Handles routes that don't fit alliance fare rules — mixed carriers, LCCs, Gulf bridge connections, surface sectors. This is how AirTreks consultants build 90% of itineraries. Use this for any route with 4+ stops, backtracking, or region combinations that alliance fares can't cover.",
+    customRouteBuildSchema,
+    async (args) => ({
+      content: [{ type: "text", text: JSON.stringify(customRouteBuild(args), null, 2) }],
     })
   );
 }
@@ -142,7 +152,7 @@ async function startHttp() {
         version: "1.0.0",
         description: "Complex flight routing intelligence for AI agents",
         mcp_endpoint: "/mcp",
-        tools: ["route_validate", "route_suggest", "hub_check", "fare_product_match"],
+        tools: ["route_validate", "route_suggest", "hub_check", "fare_product_match", "custom_route_build"],
         docs: "https://github.com/SEKeener/airtreks-mcp",
       }));
       return;
