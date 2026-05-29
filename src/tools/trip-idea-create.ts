@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { isConfigured, createTripIdea } from "../lib/kite-client.js";
+import { isConfigured, createTripIdea } from "../lib/apex-client.js";
 import { planRoute } from "./plan-route.js";
 
 export const tripIdeaCreateSchema = {
@@ -170,7 +170,7 @@ export async function tripIdeaCreate(args: {
         flexibleDates: !!flexibleDates,
         recommended: analysis.recommended,
       },
-      kiteUrl: result.id ? `https://kite.bootsnall.com/tripideas/${result.id}` : undefined,
+      apexUrl: result.id ? `https://kite.bootsnall.com/tripideas/${result.id}` : undefined,
     };
   } catch (err: any) {
     return {

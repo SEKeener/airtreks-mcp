@@ -1,19 +1,19 @@
 /**
- * Kite/APEX API client for the MCP server.
+ * APEX API client for the MCP server.
  * Ported from airtreks-rtw/server/lib/kite-client.js.
  *
  * Env vars:
- *   KITE_API_URL       — https://kite.bootsnall.com/api (default)
- *   KITE_CLIENT_ID     — OAuth client ID
- *   KITE_CLIENT_SECRET — OAuth client secret
- *   KITE_BEARER_TOKEN  — Pre-generated bearer token (optional, skips OAuth)
+ *   APEX_API_URL       — https://kite.bootsnall.com/api (default)
+ *   APEX_CLIENT_ID     — OAuth client ID
+ *   APEX_CLIENT_SECRET — OAuth client secret
+ *   APEX_BEARER_TOKEN  — Pre-generated bearer token (optional, skips OAuth)
  */
 
-const KITE_API_URL = process.env.KITE_API_URL || "https://kite.bootsnall.com/api";
-const CLIENT_ID = process.env.KITE_CLIENT_ID || "";
-const CLIENT_SECRET = process.env.KITE_CLIENT_SECRET || "";
+const APEX_API_URL = process.env.APEX_API_URL || "https://kite.bootsnall.com/api";
+const CLIENT_ID = process.env.APEX_CLIENT_ID || "";
+const CLIENT_SECRET = process.env.APEX_CLIENT_SECRET || "";
 
-let cachedToken: string | null = process.env.KITE_BEARER_TOKEN || null;
+let cachedToken: string | null = process.env.APEX_BEARER_TOKEN || null;
 let tokenExpiry = cachedToken ? Date.now() + 365 * 24 * 3600 * 1000 : 0;
 
 export function isConfigured(): boolean {
@@ -24,7 +24,7 @@ async function getToken(): Promise<string | null> {
   if (cachedToken && Date.now() < tokenExpiry) return cachedToken;
   if (!CLIENT_ID || !CLIENT_SECRET) return null;
 
-  const oauthUrl = KITE_API_URL.replace("/api", "") + "/oauth/token";
+  const oauthUrl = APEX_API_URL.replace("/api", "") + "/oauth/token";
 
   const res = await fetch(oauthUrl, {
     method: "POST",
@@ -39,7 +39,7 @@ async function getToken(): Promise<string | null> {
 
   if (!res.ok) {
     const text = await res.text();
-    throw new Error(`Kite OAuth failed (${res.status}): ${text}`);
+    throw new Error(`APEX OAuth failed (${res.status}): ${text}`);
   }
 
   const data = await res.json() as { access_token: string; expires_in: number };
@@ -50,9 +50,9 @@ async function getToken(): Promise<string | null> {
 
 async function post(endpoint: string, body: Record<string, unknown>): Promise<any> {
   const token = await getToken();
-  if (!token) throw new Error("Kite API not configured — set KITE_BEARER_TOKEN or KITE_CLIENT_ID/SECRET");
+  if (!token) throw new Error("APEX API not configured — set APEX_BEARER_TOKEN or APEX_CLIENT_ID/SECRET");
 
-  const url = `${KITE_API_URL}${endpoint}`;
+  const url = `${APEX_API_URL}${endpoint}`;
 
   const res = await fetch(url, {
     method: "POST",
@@ -73,7 +73,7 @@ async function post(endpoint: string, body: Record<string, unknown>): Promise<an
   }
 
   if (!res.ok) {
-    throw new Error(`Kite API error (${res.status}): ${JSON.stringify(data)}`);
+    throw new Error(`APEX API error (${res.status}): ${JSON.stringify(data)}`);
   }
 
   return data;
@@ -112,7 +112,7 @@ export async function createTripIdea(opts: CreateTripIdeaOpts): Promise<{ id: nu
     flexibleDates = false,
   } = opts;
 
-  // Build citylist in Kite format
+  // Build citylist in APEX format
   const citylist = [];
   for (let i = 0; i < stops.length - 1; i++) {
     citylist.push({ city: stops[i], departure_date: dates[i] || null });
@@ -130,10 +130,10 @@ export async function createTripIdea(opts: CreateTripIdeaOpts): Promise<{ id: nu
     dreaming: "Dreaming/Not confident",
     "Dreaming/Not confident": "Dreaming/Not confident",
   };
-  const kiteReadiness = readinessMap[readiness] || "50/50";
+  const apexReadiness = readinessMap[readiness] || "50/50";
 
   const questions_answers: Record<string, string[]> = {
-    "How confident do you feel booking flights for this trip?": [kiteReadiness],
+    "How confident do you feel booking flights for this trip?": [apexReadiness],
     "How do you want to plan?": [planningStyle || "I want expert guidance from humans"],
     "What matters most?": [priority || "Not sure yet"],
   };
@@ -171,7 +171,7 @@ export async function createTripIdea(opts: CreateTripIdeaOpts): Promise<{ id: nu
     currency_rate: "1",
   };
 
-  const result = await post("/tripideas/add-from-indie", payload);
+  const result = await post("/tripideas", payload);
   const id = result.id || result.data?.id;
   return { id, raw: result };
 }
