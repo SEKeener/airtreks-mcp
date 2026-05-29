@@ -11,8 +11,18 @@ import { routeSuggestSchema, routeSuggest } from "./tools/route-suggest.js";
 import { hubCheckSchema, hubCheck } from "./tools/hub-check.js";
 import { fareProductMatchSchema, fareProductMatch } from "./tools/fare-product-match.js";
 import { customRouteBuildSchema, customRouteBuild } from "./tools/custom-route-build.js";
+import { planRouteSchema, planRoute } from "./tools/plan-route.js";
 
 function registerTools(server: McpServer) {
+  server.tool(
+    "plan_route",
+    "The primary entry point for any multi-city trip. Give it your cities — it automatically evaluates Star Alliance RTW, oneworld RTW, AND custom mixed-carrier builds, then recommends the best approach. Handles direction detection, backtracking analysis, alliance feasibility, surface sectors, and carrier selection. The customer doesn't need to know if their trip is alliance or custom — this tool figures it out.",
+    planRouteSchema,
+    async (args) => ({
+      content: [{ type: "text", text: JSON.stringify(planRoute(args), null, 2) }],
+    })
+  );
+
   server.tool(
     "route_validate",
     "Validate a multi-city flight routing for feasibility. Checks alliance carrier rules, identifies dead legs, warns about poison carriers, and estimates bookability. Use this before building an itinerary to catch routing problems early.",
@@ -152,7 +162,7 @@ async function startHttp() {
         version: "1.0.0",
         description: "Complex flight routing intelligence for AI agents",
         mcp_endpoint: "/mcp",
-        tools: ["route_validate", "route_suggest", "hub_check", "fare_product_match", "custom_route_build"],
+        tools: ["plan_route", "route_validate", "route_suggest", "hub_check", "fare_product_match", "custom_route_build"],
         docs: "https://github.com/SEKeener/airtreks-mcp",
       }));
       return;
