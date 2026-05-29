@@ -12,6 +12,7 @@ import { hubCheckSchema, hubCheck } from "./tools/hub-check.js";
 import { fareProductMatchSchema, fareProductMatch } from "./tools/fare-product-match.js";
 import { customRouteBuildSchema, customRouteBuild } from "./tools/custom-route-build.js";
 import { planRouteSchema, planRoute } from "./tools/plan-route.js";
+import { tripIdeaCreateSchema, tripIdeaCreate } from "./tools/trip-idea-create.js";
 
 function registerTools(server: McpServer) {
   server.tool(
@@ -20,6 +21,15 @@ function registerTools(server: McpServer) {
     planRouteSchema,
     async (args) => ({
       content: [{ type: "text", text: JSON.stringify(planRoute(args), null, 2) }],
+    })
+  );
+
+  server.tool(
+    "trip_idea_create",
+    "Create a trip idea in AirTreks APEX system — hands off to a human consultant. Automatically runs plan_route to include full routing analysis, carrier recommendations, and consultant value assessment in the lead. The consultant starts informed, not cold. Use this when the customer is ready to get a real quote.",
+    tripIdeaCreateSchema,
+    async (args) => ({
+      content: [{ type: "text", text: JSON.stringify(await tripIdeaCreate(args), null, 2) }],
     })
   );
 
@@ -162,7 +172,7 @@ async function startHttp() {
         version: "1.0.0",
         description: "Complex flight routing intelligence for AI agents",
         mcp_endpoint: "/mcp",
-        tools: ["plan_route", "route_validate", "route_suggest", "hub_check", "fare_product_match", "custom_route_build"],
+        tools: ["plan_route", "trip_idea_create", "route_validate", "route_suggest", "hub_check", "fare_product_match", "custom_route_build"],
         docs: "https://github.com/SEKeener/airtreks-mcp",
       }));
       return;
