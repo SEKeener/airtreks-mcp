@@ -32,6 +32,15 @@ export const surfaceSectors: SurfaceSector[] = [
     region: "asia",
   },
   {
+    from: "BKK", to: "CMB",
+    method: "multiple",
+    duration: "Fly AirAsia BKK-KUL ($40-60) + AirAsia KUL-CMB ($60-100), or direct UL/FD",
+    description: "No premium direct BKK-CMB. Best budget: cheap LCC via KUL. Best full-service: UL SriLankan direct.",
+    savings: "LCC via KUL saves ~$100-250 vs full-service direct",
+    addedValue: "Adding KUL stop gives you Malaysia. Or fly direct UL if time matters.",
+    region: "asia",
+  },
+  {
     from: "BKK", to: "SGN",
     method: "bus",
     duration: "12-14hrs direct bus or fly LCC ($40-70)",

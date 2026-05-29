@@ -163,13 +163,22 @@ function scoreConsultantValue(
     return { value: "low", note: "Straightforward same-region hop. Many options." };
   }
 
-  // High-competition corridors — low value
+  // High-competition corridors — low consultant value
   const easyCorridors = [
     ["americas", "europe"],
     ["europe", "americas"],
   ];
   if (easyCorridors.some(([a, b]) => fromRegion === a && toRegion === b)) {
-    return { value: "low", note: "High-competition corridor. Lots of options, easy to price." };
+    return { value: "low", note: "High-competition transatlantic corridor. Many options, easy to price." };
+  }
+
+  // Transpacific — medium value (competitive but price variance is real)
+  const transpacCorridors = [
+    ["americas", "asia"],
+    ["asia", "americas"],
+  ];
+  if (transpacCorridors.some(([a, b]) => fromRegion === a && toRegion === b)) {
+    return { value: "medium", note: "Transpacific has multiple carrier options. Consultant can find $200-500 savings through fare class and routing optimization." };
   }
 
   // Complex corridors — high value
@@ -178,12 +187,20 @@ function scoreConsultantValue(
     ["africa", "asia"],
     ["americas", "africa"],
     ["africa", "americas"],
+    ["africa", "europe"],
+    ["europe", "africa"],
     ["south-america", "asia"],
     ["asia", "south-america"],
+    ["south-america", "europe"],
+    ["europe", "south-america"],
     ["oceania", "africa"],
     ["africa", "oceania"],
+    ["oceania", "europe"],
+    ["europe", "oceania"],
     ["south-america", "oceania"],
     ["oceania", "south-america"],
+    ["middle-east", "americas"],
+    ["americas", "middle-east"],
   ];
   if (hardCorridors.some(([a, b]) => fromRegion === a && toRegion === b)) {
     return {
