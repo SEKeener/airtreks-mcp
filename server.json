@@ -1,0 +1,28 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.SEKeener/airtreks-mcp",
+  "description": "Complex flight routing intelligence for AI agents. Plan multi-city trips across 60+ carriers, validate Star Alliance and oneworld RTW routings, get segment-by-segment carrier recommendations, identify surface sector opportunities, and hand off to human consultants. No API key needed for routing tools (100 req/day free).",
+  "repository": {
+    "url": "https://github.com/SEKeener/airtreks-mcp",
+    "source": "github"
+  },
+  "version": "1.0.0",
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "@sekeener/airtreks-mcp",
+      "version": "1.0.0",
+      "transport": {
+        "type": "stdio"
+      }
+    }
+  ],
+  "remoteEndpoints": [
+    {
+      "url": "https://mcp.airtreks.com/mcp",
+      "transport": {
+        "type": "streamable-http"
+      }
+    }
+  ]
+}
