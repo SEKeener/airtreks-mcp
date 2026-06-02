@@ -89,9 +89,6 @@ export interface CreateTripIdeaOpts {
   passengers?: number;
   cabin?: string;
   notes?: string;
-  readiness?: string;
-  planningStyle?: string;
-  priority?: string;
   flexibleDates?: boolean;
 }
 
@@ -106,9 +103,6 @@ export async function createTripIdea(opts: CreateTripIdeaOpts): Promise<{ id: nu
     passengers = 1,
     cabin = "economy",
     notes = "",
-    readiness = "50/50",
-    planningStyle,
-    priority,
     flexibleDates = false,
   } = opts;
 
@@ -119,30 +113,8 @@ export async function createTripIdea(opts: CreateTripIdeaOpts): Promise<{ id: nu
   }
   citylist.push({ city: stops[stops.length - 1], departure_date: null });
 
-  const cabinCode = cabin === "business" ? "C" : "Y";
   const serviceclass = cabin === "business" ? 2 : 1;
   const route = stops.join("-");
-
-  const readinessMap: Record<string, string> = {
-    "for sure": "For sure",
-    "For sure": "For sure",
-    "50/50": "50/50",
-    dreaming: "Dreaming/Not confident",
-    "Dreaming/Not confident": "Dreaming/Not confident",
-  };
-  const apexReadiness = readinessMap[readiness] || "50/50";
-
-  const questions_answers: Record<string, string[]> = {
-    "How confident do you feel booking flights for this trip?": [apexReadiness],
-    "How do you want to plan?": [planningStyle || "I want expert guidance from humans"],
-    "What matters most?": [priority || "Not sure yet"],
-  };
-
-  const user_route_filters = {
-    flexible_dates: !!flexibleDates,
-    include_nearby: false,
-    cabin: cabinCode,
-  };
 
   const payload: Record<string, unknown> = {
     first_name: firstName,
@@ -164,14 +136,11 @@ export async function createTripIdea(opts: CreateTripIdeaOpts): Promise<{ id: nu
     passengers: Array.from({ length: passengers }, (_, i) => ({
       first_name: i === 0 ? firstName : `Passenger ${i + 1}`,
       last_name: i === 0 ? lastName : "",
+      gender: "",
     })),
-    questions_answers,
-    user_route_filters,
-    currency: "USD",
-    currency_rate: "1",
   };
 
   const result = await post("/tripideas/add-from-indie", payload);
-  const id = result.id || result.data?.id;
+  const id = result.data?.trip_idea?.id || result.data?.[0] || result.id;
   return { id, raw: result };
 }

@@ -146,9 +146,6 @@ export async function tripIdeaCreate(args: {
       passengers,
       cabin,
       notes: noteLines.join("\n"),
-      readiness: "50/50",
-      planningStyle: "I want expert guidance from humans",
-      priority: budget === "budget" ? "Lowest price" : "Not sure yet",
       flexibleDates,
     });
 
