@@ -7,6 +7,7 @@ import { createServer, IncomingMessage, ServerResponse } from "node:http";
 import { randomUUID } from "node:crypto";
 
 import { checkRateLimit, getRateLimitHeaders } from "./lib/rate-limit.js";
+import { trackRequest, trackToolCall, trackError, trackRateLimitHit, getStats } from "./lib/stats.js";
 import { routeValidateSchema, routeValidate } from "./tools/route-validate.js";
 import { routeSuggestSchema, routeSuggest } from "./tools/route-suggest.js";
 import { hubCheckSchema, hubCheck } from "./tools/hub-check.js";
@@ -15,68 +16,67 @@ import { customRouteBuildSchema, customRouteBuild } from "./tools/custom-route-b
 import { planRouteSchema, planRoute } from "./tools/plan-route.js";
 import { tripIdeaCreateSchema, tripIdeaCreate } from "./tools/trip-idea-create.js";
 
+function tracked(name: string, fn: (args: any) => any) {
+  return async (args: any) => {
+    trackToolCall(name, args);
+    try {
+      const result = await fn(args);
+      return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
+    } catch (err: any) {
+      trackError();
+      return { content: [{ type: "text" as const, text: JSON.stringify({ error: err.message }) }] };
+    }
+  };
+}
+
 function registerTools(server: McpServer) {
   server.tool(
     "plan_route",
     "The primary entry point for any multi-city trip. Give it your cities — it automatically evaluates Star Alliance RTW, oneworld RTW, AND custom mixed-carrier builds, then recommends the best approach. Handles direction detection, backtracking analysis, alliance feasibility, surface sectors, and carrier selection. The customer doesn't need to know if their trip is alliance or custom — this tool figures it out.",
     planRouteSchema,
-    async (args) => ({
-      content: [{ type: "text", text: JSON.stringify(planRoute(args), null, 2) }],
-    })
+    tracked("plan_route", planRoute)
   );
 
   server.tool(
     "trip_idea_create",
     "Create a trip idea in AirTreks APEX system — hands off to a human consultant. Automatically runs plan_route to include full routing analysis, carrier recommendations, and consultant value assessment in the lead. The consultant starts informed, not cold. Use this when the customer is ready to get a real quote.",
     tripIdeaCreateSchema,
-    async (args) => ({
-      content: [{ type: "text", text: JSON.stringify(await tripIdeaCreate(args), null, 2) }],
-    })
+    tracked("trip_idea_create", tripIdeaCreate)
   );
 
   server.tool(
     "route_validate",
     "Validate a multi-city flight routing for feasibility. Checks alliance carrier rules, identifies dead legs, warns about poison carriers, and estimates bookability. Use this before building an itinerary to catch routing problems early.",
     routeValidateSchema,
-    async (args) => ({
-      content: [{ type: "text", text: JSON.stringify(routeValidate(args), null, 2) }],
-    })
+    tracked("route_validate", routeValidate)
   );
 
   server.tool(
     "route_suggest",
     "Get suggested multi-stop flight routings based on regions, direction, and alliance preference. Returns up to 3 proven routing templates with bookability ratings. Great for trip planning inspiration.",
     routeSuggestSchema,
-    async (args) => ({
-      content: [{ type: "text", text: JSON.stringify(routeSuggest(args), null, 2) }],
-    })
+    tracked("route_suggest", routeSuggest)
   );
 
   server.tool(
     "hub_check",
     "Check the best connection between two airports. Identifies dead legs (routes that fail on alliance fares), suggests hub routing fixes, and shows proven carrier combinations. Essential for transpacific, kangaroo, and intra-Asia routing.",
     hubCheckSchema,
-    async (args) => ({
-      content: [{ type: "text", text: JSON.stringify(hubCheck(args), null, 2) }],
-    })
+    tracked("hub_check", hubCheck)
   );
 
   server.tool(
     "fare_product_match",
     "Recommend the best fare product type for a route — RTW, Circle Pacific, Circle Atlantic, Open Jaw, or Custom Multi-City. Considers stop count, direction, and backtracking to match the right alliance fare structure.",
     fareProductMatchSchema,
-    async (args) => ({
-      content: [{ type: "text", text: JSON.stringify(fareProductMatch(args), null, 2) }],
-    })
+    tracked("fare_product_match", fareProductMatch)
   );
 
   server.tool(
     "custom_route_build",
     "Break a complex multi-city itinerary into individually-ticketable segments with carrier recommendations. Handles routes that don't fit alliance fare rules — mixed carriers, LCCs, Gulf bridge connections, surface sectors. This is how AirTreks consultants build 90% of itineraries. Use this for any route with 4+ stops, backtracking, or region combinations that alliance fares can't cover.",
     customRouteBuildSchema,
-    async (args) => ({
-      content: [{ type: "text", text: JSON.stringify(customRouteBuild(args), null, 2) }],
-    })
+    tracked("custom_route_build", customRouteBuild)
   );
 }
 
@@ -146,8 +146,10 @@ async function startHttp() {
       if (req.method === "POST") {
         const ip = (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim()
           || req.socket.remoteAddress || "unknown";
+        trackRequest(ip);
         const rl = checkRateLimit(ip);
         if (!rl.allowed) {
+          trackRateLimitHit();
           res.writeHead(429, { "Content-Type": "application/json", ...getRateLimitHeaders(rl) });
           res.end(JSON.stringify({
             error: "Rate limit exceeded",
@@ -179,6 +181,20 @@ async function startHttp() {
 
       res.writeHead(400, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: "Invalid or expired session. Send an initialize request without a session ID to start a new session." }));
+      return;
+    }
+
+    // Stats dashboard (protected)
+    if (url.pathname === "/stats") {
+      const secret = process.env.STATS_SECRET || "";
+      const provided = url.searchParams.get("key") || req.headers["x-stats-key"] as string || "";
+      if (!secret || provided !== secret) {
+        res.writeHead(401, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Unauthorized. Provide ?key= or X-Stats-Key header." }));
+        return;
+      }
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(getStats(), null, 2));
       return;
     }
 
