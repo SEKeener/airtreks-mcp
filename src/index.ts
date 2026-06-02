@@ -6,6 +6,7 @@ import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/
 import { createServer, IncomingMessage, ServerResponse } from "node:http";
 import { randomUUID } from "node:crypto";
 
+import { checkRateLimit, getRateLimitHeaders } from "./lib/rate-limit.js";
 import { routeValidateSchema, routeValidate } from "./tools/route-validate.js";
 import { routeSuggestSchema, routeSuggest } from "./tools/route-suggest.js";
 import { hubCheckSchema, hubCheck } from "./tools/hub-check.js";
@@ -129,7 +130,7 @@ async function startHttp() {
     // Health check
     if (url.pathname === "/health") {
       res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ status: "ok", server: "airtreks-mcp", version: "1.0.0", sessions: sessions.size }));
+      res.end(JSON.stringify({ status: "ok", server: "airtreks-mcp", version: "1.0.0", sessions: sessions.size, rateLimit: "100/day per IP" }));
       return;
     }
 
@@ -139,6 +140,23 @@ async function startHttp() {
         res.writeHead(405, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ error: "Method not allowed" }));
         return;
+      }
+
+      // Rate limit by IP (POST only — tool calls and initialization)
+      if (req.method === "POST") {
+        const ip = (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim()
+          || req.socket.remoteAddress || "unknown";
+        const rl = checkRateLimit(ip);
+        if (!rl.allowed) {
+          res.writeHead(429, { "Content-Type": "application/json", ...getRateLimitHeaders(rl) });
+          res.end(JSON.stringify({
+            error: "Rate limit exceeded",
+            limit: rl.limit,
+            resetAt: new Date(rl.resetAt).toISOString(),
+            message: `Free tier: ${rl.limit} requests/day. Contact partnerships@airtreks.com for higher limits.`,
+          }));
+          return;
+        }
       }
 
       const sessionId = req.headers["mcp-session-id"] as string | undefined;
