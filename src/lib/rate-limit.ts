@@ -1,16 +1,12 @@
 /**
- * Simple in-memory rate limiter.
- * Tracks requests per IP per day. Resets at midnight UTC.
- *
- * Free tier: 100 queries/day (tool calls, not initialize/list).
- * No API key yet — rate limit by IP. API keys come in Phase 1b.
+ * Rate limiter keyed by API key.
+ * Each key has its own daily limit (from api-keys.ts tier).
+ * Resets at midnight UTC.
  */
-
-const DEFAULT_LIMIT = parseInt(process.env.RATE_LIMIT_PER_DAY || "100", 10);
 
 interface BucketEntry {
   count: number;
-  resetAt: number; // epoch ms
+  resetAt: number;
 }
 
 const buckets = new Map<string, BucketEntry>();
@@ -38,22 +34,21 @@ export interface RateLimitResult {
   resetAt: number;
 }
 
-export function checkRateLimit(ip: string): RateLimitResult {
+export function checkRateLimit(bucketKey: string, dailyLimit: number): RateLimitResult {
   const now = Date.now();
-  let entry = buckets.get(ip);
+  let entry = buckets.get(bucketKey);
 
-  // Reset if expired
   if (!entry || now >= entry.resetAt) {
     entry = { count: 0, resetAt: getResetTime() };
-    buckets.set(ip, entry);
+    buckets.set(bucketKey, entry);
   }
 
   entry.count++;
 
   return {
-    allowed: entry.count <= DEFAULT_LIMIT,
-    remaining: Math.max(0, DEFAULT_LIMIT - entry.count),
-    limit: DEFAULT_LIMIT,
+    allowed: entry.count <= dailyLimit,
+    remaining: Math.max(0, dailyLimit - entry.count),
+    limit: dailyLimit,
     resetAt: entry.resetAt,
   };
 }

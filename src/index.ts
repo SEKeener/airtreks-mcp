@@ -8,6 +8,7 @@ import { randomUUID } from "node:crypto";
 
 import { checkRateLimit, getRateLimitHeaders } from "./lib/rate-limit.js";
 import { trackRequest, trackToolCall, trackError, trackRateLimitHit, getStats } from "./lib/stats.js";
+import { lookupKey, registerKey, listKeys } from "./lib/api-keys.js";
 import { routeValidateSchema, routeValidate } from "./tools/route-validate.js";
 import { routeSuggestSchema, routeSuggest } from "./tools/route-suggest.js";
 import { hubCheckSchema, hubCheck } from "./tools/hub-check.js";
@@ -134,6 +135,55 @@ async function startHttp() {
       return;
     }
 
+    // Register endpoint — get an API key
+    if (url.pathname === "/register" && req.method === "POST") {
+      const regSecret = process.env.REGISTER_SECRET || "";
+      let body = "";
+      for await (const chunk of req) body += chunk;
+      try {
+        const { email, name, secret } = JSON.parse(body);
+        if (!email) {
+          res.writeHead(400, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: "email is required" }));
+          return;
+        }
+        // If REGISTER_SECRET is set, require it (prevents spam)
+        if (regSecret && secret !== regSecret) {
+          res.writeHead(403, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: "Invalid registration secret. Contact partnerships@airtreks.com for access." }));
+          return;
+        }
+        const key = registerKey(email, name || "");
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({
+          apiKey: key.key,
+          email: key.email,
+          tier: key.tier,
+          dailyLimit: key.dailyLimit,
+          usage: "Include header: X-API-Key: " + key.key,
+          mcpEndpoint: "https://mcp.airtreks.com/mcp",
+        }));
+      } catch {
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Invalid JSON body. Send {\"email\": \"you@example.com\", \"name\": \"Your Name\"}" }));
+      }
+      return;
+    }
+
+    // Key management (admin)
+    if (url.pathname === "/keys") {
+      const secret = process.env.STATS_SECRET || "";
+      const provided = url.searchParams.get("key") || req.headers["x-stats-key"] as string || "";
+      if (!secret || provided !== secret) {
+        res.writeHead(401, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Unauthorized" }));
+        return;
+      }
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(listKeys(), null, 2));
+      return;
+    }
+
     // MCP endpoint
     if (url.pathname === "/mcp") {
       if (req.method !== "POST" && req.method !== "GET" && req.method !== "DELETE") {
@@ -142,12 +192,24 @@ async function startHttp() {
         return;
       }
 
-      // Rate limit by IP (POST only — tool calls and initialization)
+      // Require API key on POST requests
       if (req.method === "POST") {
-        const ip = (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim()
-          || req.socket.remoteAddress || "unknown";
-        trackRequest(ip);
-        const rl = checkRateLimit(ip);
+        const apiKey = req.headers["x-api-key"] as string || "";
+        const keyRecord = lookupKey(apiKey);
+        if (!keyRecord) {
+          res.writeHead(401, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({
+            error: "API key required",
+            message: "Register at POST https://mcp.airtreks.com/register with {\"email\": \"you@example.com\"}",
+            docs: "https://github.com/SEKeener/airtreks-mcp",
+          }));
+          return;
+        }
+
+        trackRequest(keyRecord.email);
+
+        // Rate limit by API key
+        const rl = checkRateLimit(keyRecord.key, keyRecord.dailyLimit);
         if (!rl.allowed) {
           trackRateLimitHit();
           res.writeHead(429, { "Content-Type": "application/json", ...getRateLimitHeaders(rl) });
@@ -155,7 +217,7 @@ async function startHttp() {
             error: "Rate limit exceeded",
             limit: rl.limit,
             resetAt: new Date(rl.resetAt).toISOString(),
-            message: `Free tier: ${rl.limit} requests/day. Contact partnerships@airtreks.com for higher limits.`,
+            message: `${keyRecord.tier} tier: ${rl.limit} requests/day. Contact partnerships@airtreks.com for higher limits.`,
           }));
           return;
         }
