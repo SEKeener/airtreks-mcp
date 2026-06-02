@@ -171,7 +171,7 @@ export async function createTripIdea(opts: CreateTripIdeaOpts): Promise<{ id: nu
     currency_rate: "1",
   };
 
-  const result = await post("/tripideas", payload);
+  const result = await post("/tripideas/add-from-indie", payload);
   const id = result.id || result.data?.id;
   return { id, raw: result };
 }
