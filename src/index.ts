@@ -30,7 +30,7 @@ function tracked(name: string, fn: (args: any) => any) {
   };
 }
 
-function registerTools(server: McpServer) {
+function registerTools(server: McpServer, includeLeadTools = false) {
   server.tool(
     "plan_route",
     "The primary entry point for any multi-city trip. Give it your cities — it automatically evaluates Star Alliance RTW, oneworld RTW, AND custom mixed-carrier builds, then recommends the best approach. Handles direction detection, backtracking analysis, alliance feasibility, surface sectors, and carrier selection. The customer doesn't need to know if their trip is alliance or custom — this tool figures it out.",
@@ -38,12 +38,14 @@ function registerTools(server: McpServer) {
     tracked("plan_route", planRoute)
   );
 
-  server.tool(
-    "trip_idea_create",
-    "Create a trip idea in AirTreks APEX system — hands off to a human consultant. Automatically runs plan_route to include full routing analysis, carrier recommendations, and consultant value assessment in the lead. The consultant starts informed, not cold. Use this when the customer is ready to get a real quote.",
-    tripIdeaCreateSchema,
-    tracked("trip_idea_create", tripIdeaCreate)
-  );
+  if (includeLeadTools) {
+    server.tool(
+      "trip_idea_create",
+      "Create a trip idea in AirTreks APEX system — hands off to a human consultant. Automatically runs plan_route to include full routing analysis, carrier recommendations, and consultant value assessment in the lead. The consultant starts informed, not cold. Use this when the customer is ready to get a real quote.",
+      tripIdeaCreateSchema,
+      tracked("trip_idea_create", tripIdeaCreate)
+    );
+  }
 
   server.tool(
     "route_validate",
@@ -85,7 +87,7 @@ function registerTools(server: McpServer) {
 
 async function startStdio() {
   const server = new McpServer({ name: "airtreks", version: "1.0.0" });
-  registerTools(server);
+  registerTools(server, true); // local dev gets all tools
   const transport = new StdioServerTransport();
   await server.connect(transport);
   console.error("AirTreks MCP server running on stdio");
@@ -96,8 +98,8 @@ async function startStdio() {
 async function startHttp() {
   const PORT = parseInt(process.env.PORT || "3000", 10);
 
-  // Session store: sessionId -> { transport, server, lastUsed }
-  const sessions = new Map<string, { transport: StreamableHTTPServerTransport; server: McpServer; lastUsed: number }>();
+  // Session store: sessionId -> { transport, server, lastUsed, hasApiKey }
+  const sessions = new Map<string, { transport: StreamableHTTPServerTransport; server: McpServer; lastUsed: number; hasApiKey: boolean }>();
 
   // Clean up stale sessions every 5 minutes
   setInterval(() => {
@@ -111,16 +113,16 @@ async function startHttp() {
     }
   }, 5 * 60 * 1000);
 
-  function createSession(): { sid: string; transport: StreamableHTTPServerTransport; server: McpServer } {
+  function createSession(hasApiKey: boolean): { sid: string; transport: StreamableHTTPServerTransport; server: McpServer } {
     const sid = randomUUID();
     const transport = new StreamableHTTPServerTransport({
       sessionIdGenerator: () => sid,
     });
     const mcpServer = new McpServer({ name: "airtreks", version: "1.0.0" });
-    registerTools(mcpServer);
+    registerTools(mcpServer, hasApiKey);
 
     transport.onclose = () => sessions.delete(sid);
-    sessions.set(sid, { transport, server: mcpServer, lastUsed: Date.now() });
+    sessions.set(sid, { transport, server: mcpServer, lastUsed: Date.now(), hasApiKey });
 
     return { sid, transport, server: mcpServer };
   }
@@ -192,32 +194,33 @@ async function startHttp() {
         return;
       }
 
-      // Require API key on POST requests
+      // Auth + rate limiting on POST requests
       if (req.method === "POST") {
         const apiKey = req.headers["x-api-key"] as string || "";
-        const keyRecord = lookupKey(apiKey);
-        if (!keyRecord) {
-          res.writeHead(401, { "Content-Type": "application/json" });
-          res.end(JSON.stringify({
-            error: "API key required",
-            message: "Register at POST https://mcp.airtreks.com/register with {\"email\": \"you@example.com\"}",
-            docs: "https://github.com/SEKeener/airtreks-mcp",
-          }));
-          return;
-        }
+        const keyRecord = apiKey ? lookupKey(apiKey) : null;
+        const ip = (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim()
+          || req.socket.remoteAddress || "unknown";
 
-        trackRequest(keyRecord.email);
+        // Track by key email or IP
+        trackRequest(keyRecord?.email || ip);
 
-        // Rate limit by API key
-        const rl = checkRateLimit(keyRecord.key, keyRecord.dailyLimit);
+        // Rate limit: API key uses key's limit, anonymous uses IP-based 100/day
+        const bucketKey = keyRecord ? keyRecord.key : `ip:${ip}`;
+        const dailyLimit = keyRecord ? keyRecord.dailyLimit : 100;
+        const rl = checkRateLimit(bucketKey, dailyLimit);
+
         if (!rl.allowed) {
           trackRateLimitHit();
+          const upgradeMsg = keyRecord
+            ? `${keyRecord.tier} tier: ${rl.limit} requests/day. Contact partnerships@airtreks.com for higher limits.`
+            : `Free tier: ${rl.limit} requests/day. Register for an API key for higher limits: POST https://mcp.airtreks.com/register`;
           res.writeHead(429, { "Content-Type": "application/json", ...getRateLimitHeaders(rl) });
           res.end(JSON.stringify({
             error: "Rate limit exceeded",
             limit: rl.limit,
             resetAt: new Date(rl.resetAt).toISOString(),
-            message: `${keyRecord.tier} tier: ${rl.limit} requests/day. Contact partnerships@airtreks.com for higher limits.`,
+            message: upgradeMsg,
+            register: keyRecord ? undefined : "POST https://mcp.airtreks.com/register with {\"email\": \"you@example.com\"}",
           }));
           return;
         }
@@ -235,7 +238,8 @@ async function startHttp() {
 
       // New session (POST without session ID = initialization)
       if (req.method === "POST" && !sessionId) {
-        const { transport, server: mcpServer } = createSession();
+        const hasKey = !!(req.headers["x-api-key"] && lookupKey(req.headers["x-api-key"] as string));
+        const { transport, server: mcpServer } = createSession(hasKey);
         await mcpServer.connect(transport);
         await transport.handleRequest(req, res);
         return;
@@ -268,7 +272,10 @@ async function startHttp() {
         version: "1.0.0",
         description: "Complex flight routing intelligence for AI agents",
         mcp_endpoint: "/mcp",
-        tools: ["plan_route", "trip_idea_create", "route_validate", "route_suggest", "hub_check", "fare_product_match", "custom_route_build"],
+        free_tools: ["plan_route", "route_validate", "route_suggest", "hub_check", "fare_product_match", "custom_route_build"],
+        api_key_tools: ["trip_idea_create"],
+        rate_limit: "100 requests/day (free), higher with API key",
+        register: "POST /register with {\"email\": \"you@example.com\"}",
         docs: "https://github.com/SEKeener/airtreks-mcp",
       }));
       return;
