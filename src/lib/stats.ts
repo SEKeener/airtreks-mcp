@@ -51,8 +51,9 @@ function saveToDisk() {
   dirty = false;
 }
 
-// Save every 30 seconds if dirty
-setInterval(saveToDisk, 30 * 1000);
+// Save every 30 seconds if dirty. unref: don't hold the process open (the
+// HTTP server does that in prod; tests import this module and must exit).
+setInterval(saveToDisk, 30 * 1000).unref();
 
 // Save on process exit
 process.on("SIGTERM", saveToDisk);

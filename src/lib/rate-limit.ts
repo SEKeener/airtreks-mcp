@@ -19,7 +19,7 @@ setInterval(() => {
       buckets.delete(key);
     }
   }
-}, 10 * 60 * 1000);
+}, 10 * 60 * 1000).unref();
 
 function getResetTime(): number {
   const now = new Date();

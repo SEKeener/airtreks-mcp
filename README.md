@@ -142,6 +142,18 @@ AirTreks has built complex multi-stop itineraries since 1987. This server expose
 
 No other flight tool returns this because no other flight tool has priced these failures.
 
+## REST API (no MCP client required)
+
+Every tool is also a plain REST endpoint - same tools, same rate limits, JSON in/out. For agent frameworks that consume REST instead of MCP:
+
+```bash
+curl -X POST https://mcp.airtreks.com/api/plan_route \
+  -H "Content-Type: application/json" \
+  -d '{"cities": ["LAX", "NRT", "BKK", "LHR", "LAX"]}'
+```
+
+Full OpenAPI 3.1 spec: [`https://mcp.airtreks.com/openapi.json`](https://mcp.airtreks.com/openapi.json)
+
 ## Rate limits
 
 - **Free:** 100 requests/day per IP, no key needed
@@ -153,6 +165,8 @@ No other flight tool returns this because no other flight tool has priced these 
 | Path | Description |
 |------|-------------|
 | `/mcp` | MCP protocol endpoint (Streamable HTTP) |
+| `/api/{tool}` | REST twin of each tool (POST, JSON body) |
+| `/openapi.json` | OpenAPI 3.1 spec for the REST surface |
 | `/health` | Health check |
 | `/register` | Get an API key (POST) |
 | `/privacy` | Privacy policy |
