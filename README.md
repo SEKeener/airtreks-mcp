@@ -1,5 +1,7 @@
 # AirTreks MCP Server
 
+[![smithery badge](https://smithery.ai/badge/bootsnall/airtreks)](https://smithery.ai/servers/bootsnall/airtreks)
+
 Complex multi-city flight routing intelligence for AI agents. Plan round-the-world trips across 60+ carriers, validate alliance routings, get carrier recommendations, identify surface sector savings, and hand off to human consultants.
 
 **Live endpoint:** `https://mcp.airtreks.com/mcp`
