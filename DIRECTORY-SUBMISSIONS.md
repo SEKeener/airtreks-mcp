@@ -51,7 +51,7 @@ Local stdio alternative:
 | Directory | Status | Link |
 |-----------|--------|------|
 | awesome-mcp-servers (punkpeye) | PR submitted (open) | https://github.com/punkpeye/awesome-mcp-servers/pull/7293 |
-| Official MCP Registry | Needs mcp-publisher login | Run 4 commands below |
+| Official MCP Registry | Published 2026-07-13 (v1.0.2, remotes + icons) | https://registry.modelcontextprotocol.io/v0/servers?search=airtreks |
 | npm | Published (v1.0.1, 355 downloads) | https://www.npmjs.com/package/airtreks-mcp |
 | mcp.so | Needs GitHub login to submit | https://mcp.so/submit |
 | mcpservers.org | Submitted 2026-06-25, pending review | https://mcpservers.org/submit |
@@ -60,15 +60,9 @@ Local stdio alternative:
 
 ---
 
-## Official MCP Registry (run these 4 commands)
+## Official MCP Registry
 
-```bash
-cd ~/Projects/airtreks-mcp
-npm adduser
-npm publish --access public
-mcp-publisher login github
-mcp-publisher publish
-```
+Published 2026-07-13 as `io.github.SEKeener/airtreks-mcp` v1.0.2 (isLatest, active) with the streamable-http remote and the 4 canonical icons. To publish a new version: bump `version` in `server.json` (registry rejects duplicates), then `mcp-publisher login github && mcp-publisher publish` from the repo root.
 
 ---
 
