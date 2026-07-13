@@ -34,7 +34,7 @@
     "url": "https://github.com/SEKeener/airtreks-mcp",
     "source": "github"
   },
-  "version": "1.0.1",
+  "version": "1.0.2",
   "packages": [
     {
       "registryType": "npm",
