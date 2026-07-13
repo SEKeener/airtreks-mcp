@@ -50,15 +50,15 @@ Local stdio alternative:
 
 | Directory | Status | Link |
 |-----------|--------|------|
-| awesome-mcp-servers (punkpeye) | PR open; Glama badge added 2026-07-13; merge blocked on Glama quality score (needs Glama release, see below) | https://github.com/punkpeye/awesome-mcp-servers/pull/7293 |
+| awesome-mcp-servers (punkpeye) | PR open, both maintainer asks met 2026-07-13 (badge + Glama score A); awaiting merge | https://github.com/punkpeye/awesome-mcp-servers/pull/7293 |
 | Official MCP Registry | Published 2026-07-13 (v1.0.2, remotes + icons) | https://registry.modelcontextprotocol.io/v0/servers?search=airtreks |
 | npm | Published (v1.0.1, 355 downloads) | https://www.npmjs.com/package/airtreks-mcp |
-| mcp.so | Needs GitHub login to submit (Sean, ~2 min; form contents below) | https://mcp.so/submit |
+| mcp.so | Listed (verified 2026-07-13; keyword search doesn't surface it yet) | https://mcp.so/server/airtreks-mcp/SEKeener |
 | mcpservers.org | Submitted 2026-06-25, still pending review (re-verified 2026-07-13) | https://mcpservers.org/submit |
 | PulseMCP | Listed (auto-ingested; verified 2026-07-13) | https://www.pulsemcp.com/servers/sekeener-airtreks |
-| Glama.ai | Listed, but no quality score until a Glama "release" is created (Sean, admin UI; see below) | https://glama.ai/mcp/servers/SEKeener/airtreks-mcp |
-| GitHub MCP Registry (github.com/mcp) | Not listed; curated only - email nomination to partnerships@github.com (Sean; draft below) | https://github.com/mcp |
-| Smithery | Not listed, no auto-sync from official registry; submit endpoint URL at smithery.ai/new (Sean, browser OAuth; steps below) | https://smithery.ai/new |
+| Glama.ai | Listed + scored 2026-07-13: **Grade A (83%)**, release v0.1.0 (their default numbering; supersede with a real version on next server change) | https://glama.ai/mcp/servers/SEKeener/airtreks-mcp |
+| GitHub MCP Registry (github.com/mcp) | Nomination email sent to partnerships@github.com 2026-07-13; awaiting curation (no SLA) | https://github.com/mcp |
+| Smithery | Listed 2026-07-13 as `bootsnall/airtreks`, quality 82/100, domain-verified via TXT on airtreks.com; "verified" badge itself requires a paid plan (skipped) | https://smithery.ai/servers/bootsnall/airtreks |
 | Anthropic Claude connectors directory | Not submitted; requires Claude Team/Enterprise org owner + server prereqs (see below) | https://claude.com/docs/connectors/building/submission |
 | OpenAI Apps (ChatGPT) | Evaluated 2026-07-13: worthwhile, tools-only servers qualify; requires OpenAI org + identity verification (see below) | https://developers.openai.com/apps-sdk/deploy/submission |
 
@@ -71,6 +71,8 @@ Published 2026-07-13 as `io.github.SEKeener/airtreks-mcp` v1.0.2 (isLatest, acti
 ---
 
 ## mcp.so — https://mcp.so/submit
+
+Done: listed at https://mcp.so/server/airtreks-mcp/SEKeener (submit form reported "already submitted" 2026-07-13; listing verified live via headless browser - their keyword search doesn't surface it yet, but the page exists and carries schema.org metadata). Original form contents for reference:
 
 - **Type:** MCP Server
 - **Name:** AirTreks MCP
@@ -107,11 +109,9 @@ Published 2026-07-13 as `io.github.SEKeener/airtreks-mcp` v1.0.2 (isLatest, acti
 
 ## Glama.ai — https://glama.ai/mcp/servers
 
-Listed at https://glama.ai/mcp/servers/SEKeener/airtreks-mcp, but the quality score is unset. Glama requires a Glama "release" (not a GitHub release) before it scores tool-definition quality and server coherence:
+Done 2026-07-13: **Grade A (83%)** - tool definition quality A (7/7 tools scored, 3.5-4.3/5), server coherence A. Release v0.1.0 created via the Build & Release admin flow (build spec: base debian:trixie-slim, Node 26, build steps `["npm ci","npm run build"]`, CMD `["node","dist/index.js"]` - stdio auto-selected, no env vars needed).
 
-1. Log into Glama, open the server's admin page.
-2. Deploy via the Dockerfile admin interface (repo already has a Dockerfile), then publish the release.
-3. Score appears at https://glama.ai/mcp/servers/SEKeener/airtreks-mcp/score - this is what unblocks the awesome-mcp-servers PR merge.
+To re-release after server changes: server admin page -> sync head commit -> Build & Release with a real version number (0.1.0 was their default; use the server.json version next time).
 
 ---
 
@@ -119,7 +119,7 @@ Listed at https://glama.ai/mcp/servers/SEKeener/airtreks-mcp, but the quality sc
 
 Curated, ~148 servers as of 2026-07-13. No auto-ingest from the Official MCP Registry and no self-service submission (self-publication announced as "coming" Oct 2025, not shipped). Only path: email nomination, reviewed by GitHub against stability, security, maintenance, and docs quality.
 
-Draft email (send from Sean's account to partnerships@github.com):
+**Nomination email sent 2026-07-13.** No published SLA; if no reply in a few weeks, follow up on the same thread. Email as sent:
 
 > **Subject:** GitHub MCP Registry inclusion request: AirTreks MCP (io.github.SEKeener/airtreks-mcp)
 >
@@ -138,12 +138,9 @@ Draft email (send from Sean's account to partnerships@github.com):
 
 ## Smithery — https://smithery.ai/new
 
-Not listed (verified via registry.smithery.ai 2026-07-13); Smithery does not sync from the Official MCP Registry. Current flow is URL-based "bring your own hosting" - no smithery.yaml, no repo changes needed (the old smithery.yaml GitHub-deploy flow is retired).
+Done 2026-07-13: listed as `bootsnall/airtreks` at https://smithery.ai/servers/bootsnall/airtreks. Quality score 82/100, homepage airtreks.com, domain ownership proven via TXT record on the airtreks.com apex (`smithery-verification=e5d5...ecb9`, lives in DNS Made Easy - leave it, ownership is re-checked), backlink via Smithery badge in the repo README.
 
-1. Log in at smithery.ai (browser OAuth) and claim a namespace (first-come).
-2. Go to https://smithery.ai/new and paste `https://mcp.airtreks.com/mcp` (or CLI: `smithery mcp publish "https://mcp.airtreks.com/mcp" -n <namespace>/airtreks-mcp`).
-3. Smithery auto-scans the endpoint for tools (probe on 2026-07-13 confirmed our endpoint responds correctly to their initialize handshake, no auth wall). If a WAF is ever added in front of mcp.airtreks.com, allowlist User-Agent `SmitheryBot/1.0`.
-4. After publish, complete the official-vendor verification checklist in server Settings (mcp.airtreks.com is on the brand domain, so this should pass).
+Verification checklist: 5/6 green; the final "verified" badge requires a **paid developer plan** - skipped deliberately. Revisit only if the server's Smithery Usage tab shows meaningful traffic. If a WAF is ever added in front of mcp.airtreks.com, allowlist User-Agent `SmitheryBot/1.0` (backlink + tool scans).
 
 ---
 
