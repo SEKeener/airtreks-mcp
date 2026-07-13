@@ -5,6 +5,8 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { createServer, IncomingMessage, ServerResponse } from "node:http";
 import { randomUUID } from "node:crypto";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 
 import { checkRateLimit, getRateLimitHeaders } from "./lib/rate-limit.js";
 import { trackRequest, trackToolCall, trackError, trackRateLimitHit, getStats } from "./lib/stats.js";
@@ -16,6 +18,15 @@ import { fareProductMatchSchema, fareProductMatch } from "./tools/fare-product-m
 import { customRouteBuildSchema, customRouteBuild } from "./tools/custom-route-build.js";
 import { planRouteSchema, planRoute } from "./tools/plan-route.js";
 import { tripIdeaCreateSchema, tripIdeaCreate } from "./tools/trip-idea-create.js";
+
+// Served at /.well-known/mcp/server.json for Registry auto-discovery. Read once
+// at startup; ../server.json resolves to the repo root (dev) and /app (Docker).
+let serverManifest = "{}";
+try {
+  serverManifest = readFileSync(fileURLToPath(new URL("../server.json", import.meta.url)), "utf8");
+} catch {
+  console.warn("[server.json] manifest not found next to app root; serving empty {}");
+}
 
 function tracked(name: string, fn: (args: any) => any) {
   return async (args: any) => {
@@ -134,6 +145,13 @@ async function startHttp() {
     if (url.pathname === "/health") {
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ status: "ok", server: "airtreks-mcp", version: "1.0.0", sessions: sessions.size, rateLimit: "100/day per IP" }));
+      return;
+    }
+
+    // MCP Registry auto-discovery: serve the server.json manifest.
+    if (url.pathname === "/.well-known/mcp/server.json") {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(serverManifest);
       return;
     }
 
