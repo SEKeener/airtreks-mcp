@@ -24,7 +24,7 @@ const cityLongitudes: Record<string, number> = {
   EZE: -58, GRU: -47, SCL: -71, BOG: -74, LIM: -77, GIG: -43, MVD: -56,
   // Europe
   LHR: 0, LGW: 0, CDG: 2, AMS: 5, FRA: 9, MUC: 12, ZRH: 9,
-  FCO: 12, MAD: -4, BCN: 2, LIS: -9, ATH: 24, IST: 29,
+  FCO: 12, MAD: -4, BCN: 2, LIS: -9, ATH: 24, IST: 29, MXP: 9, SVO: 37,
   CPH: 13, OSL: 11, ARN: 18, HEL: 25, VIE: 16, PRG: 14,
   WAW: 21, BUD: 19, DUB: -6, EDI: -3,
   // Middle East

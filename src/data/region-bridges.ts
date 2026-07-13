@@ -22,6 +22,8 @@ export const airportRegions: Record<string, string> = {
   // Americas
   LAX: "americas", SFO: "americas", JFK: "americas", EWR: "americas", ORD: "americas",
   ATL: "americas", DFW: "americas", MIA: "americas", IAH: "americas", SEA: "americas",
+  PDX: "americas", DEN: "americas", PHX: "americas", LAS: "americas", BOS: "americas",
+  IAD: "americas", PHL: "americas",
   YVR: "americas", YYZ: "americas", YUL: "americas", YYC: "americas",
   MEX: "americas", CUN: "americas", GDL: "americas", PTY: "americas",
   // South America
@@ -33,7 +35,7 @@ export const airportRegions: Record<string, string> = {
   FCO: "europe", MAD: "europe", BCN: "europe", MUC: "europe", ZRH: "europe",
   VIE: "europe", CPH: "europe", OSL: "europe", ARN: "europe", HEL: "europe",
   LIS: "europe", ATH: "europe", PRG: "europe", WAW: "europe", BUD: "europe",
-  DUB: "europe", EDI: "europe", IST: "europe",
+  DUB: "europe", EDI: "europe", IST: "europe", MXP: "europe", SVO: "europe",
   // Asia
   NRT: "asia", HND: "asia", KIX: "asia", HKG: "asia", PEK: "asia", PVG: "asia",
   BKK: "asia", DMK: "asia", SIN: "asia", KUL: "asia", SGN: "asia", HAN: "asia",

@@ -10,6 +10,7 @@ import { fileURLToPath } from "node:url";
 
 import { checkRateLimit, getRateLimitHeaders } from "./lib/rate-limit.js";
 import { matchPlatform } from "./lib/cidr.js";
+import { normalizeCode } from "./data/city-aliases.js";
 import { PRIVACY_HTML } from "./privacy.js";
 import { trackRequest, trackToolCall, trackError, trackRateLimitHit, getStats } from "./lib/stats.js";
 import { lookupKey, registerKey, listKeys } from "./lib/api-keys.js";
@@ -30,8 +31,18 @@ try {
   console.warn("[server.json] manifest not found next to app root; serving empty {}");
 }
 
+// Resolve metro codes (TYO, LON, NYC...) before any lookup; applies to every
+// tool on both transports (AIR-496).
+function normalizeCityArgs(args: any): any {
+  if (args && Array.isArray(args.cities)) args.cities = args.cities.map((c: unknown) => typeof c === "string" ? normalizeCode(c) : c);
+  if (typeof args?.from === "string") args.from = normalizeCode(args.from);
+  if (typeof args?.to === "string") args.to = normalizeCode(args.to);
+  return args;
+}
+
 function tracked(name: string, fn: (args: any) => any) {
   return async (args: any) => {
+    args = normalizeCityArgs(args);
     trackToolCall(name, args);
     try {
       const result = await fn(args);
