@@ -1,5 +1,51 @@
 # MCP Directory Submissions
 
+## Metadata pack (canonical - copy from here, never retype)
+
+| Field | Value |
+|-------|-------|
+| Name | AirTreks MCP (`io.github.SEKeener/airtreks-mcp`) |
+| One-sentence description | Multi-city flight routing intelligence — plan RTW trips, validate alliances, get carrier picks. |
+| Long description | Complex multi-city flight routing intelligence for AI agents. 7 tools: plan round-the-world trips across 60+ carriers, validate Star Alliance and oneworld alliance routings, get segment-by-segment carrier recommendations, identify surface sector savings, and hand off to human consultants. No API key needed (100 req/day free). |
+| Tool list | `plan_route`, `route_validate`, `route_suggest`, `hub_check`, `fare_product_match`, `custom_route_build` (free) + `trip_idea_create` (API key) |
+| Transport | Streamable HTTP at `https://mcp.airtreks.com/mcp`; stdio via `npx airtreks-mcp` |
+| Auth model | Free tier: none, 100 req/day per IP. API key (for `trip_idea_create` + higher limits): `POST https://mcp.airtreks.com/register` |
+| Repo | https://github.com/SEKeener/airtreks-mcp |
+| Homepage | https://airtreks.com (server: https://mcp.airtreks.com) |
+| Icon (PNG 512, light) | https://airtreks.com/brand/airtreks-icon-512.png |
+| Icon (PNG 512, dark) | https://airtreks.com/brand/airtreks-icon-dark-512.png |
+| Icon (SVG, light) | https://airtreks.com/brand/airtreks-icon.svg |
+| Icon (SVG, dark) | https://airtreks.com/brand/airtreks-icon-dark.svg |
+| Manifest | https://mcp.airtreks.com/.well-known/mcp/server.json |
+| Contact | sean@airtreks.com |
+
+Icon URLs are the canonical brand set from AIR-479 (`airtreks-media-v3:packages/brand/brand-assets.md`). Use the 512 PNG wherever a directory asks for a logo; SVG where accepted.
+
+Claude Desktop / Cursor config snippet (remote, recommended):
+
+```json
+{
+  "mcpServers": {
+    "airtreks": {
+      "url": "https://mcp.airtreks.com/mcp"
+    }
+  }
+}
+```
+
+Local stdio alternative:
+
+```json
+{
+  "mcpServers": {
+    "airtreks": {
+      "command": "npx",
+      "args": ["airtreks-mcp"]
+    }
+  }
+}
+```
+
 ## Status
 
 | Directory | Status | Link |

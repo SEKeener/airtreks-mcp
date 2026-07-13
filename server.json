@@ -4,6 +4,32 @@
   "title": "AirTreks MCP",
   "description": "Multi-city flight routing intelligence — plan RTW trips, validate alliances, get carrier picks.",
   "websiteUrl": "https://airtreks.com",
+  "icons": [
+    {
+      "src": "https://airtreks.com/brand/airtreks-icon-512.png",
+      "mimeType": "image/png",
+      "sizes": ["512x512"],
+      "theme": "light"
+    },
+    {
+      "src": "https://airtreks.com/brand/airtreks-icon-dark-512.png",
+      "mimeType": "image/png",
+      "sizes": ["512x512"],
+      "theme": "dark"
+    },
+    {
+      "src": "https://airtreks.com/brand/airtreks-icon.svg",
+      "mimeType": "image/svg+xml",
+      "sizes": ["any"],
+      "theme": "light"
+    },
+    {
+      "src": "https://airtreks.com/brand/airtreks-icon-dark.svg",
+      "mimeType": "image/svg+xml",
+      "sizes": ["any"],
+      "theme": "dark"
+    }
+  ],
   "repository": {
     "url": "https://github.com/SEKeener/airtreks-mcp",
     "source": "github"
