@@ -57,6 +57,40 @@ Local stdio alternative:
 | mcpservers.org | Submitted 2026-06-25, pending review | https://mcpservers.org/submit |
 | PulseMCP | Auto-ingests from Official MCP Registry | https://www.pulsemcp.com |
 | Glama.ai | Listed (auto-indexed, 27 downloads) | https://glama.ai/mcp/servers?search=airtreks |
+| OpenAI ChatGPT Apps | Prereqs done (AIR-499); awaiting Sean: org verification + portal submission | https://platform.openai.com/plugins |
+
+---
+
+## OpenAI ChatGPT Apps directory — https://platform.openai.com/plugins (AIR-499)
+
+Server-side prereqs are done: tool annotations (AIR-482), privacy policy at
+https://mcp.airtreks.com/privacy, and an `openai` egress rate-limit bucket seeded
+from https://openai.com/chatgpt-connectors.json and refreshed daily at runtime
+(AIR-499). Free tier is anonymous and touches no user data, so no OAuth is
+required (OpenAI allows noauth for such tools).
+
+Sean-interactive steps, in order:
+
+1. **Verify the org** at https://platform.openai.com/settings — complete *business*
+   verification to publish as AirTreks (individual verification publishes under
+   your personal name). Reviews reject unverified publishers.
+2. Confirm you have `api.apps.write` (org owners have it automatically).
+3. At https://platform.openai.com/plugins create a submission:
+   - MCP server URL: `https://mcp.airtreks.com/mcp` (no auth credentials needed)
+   - Click **Scan Tools** — it should find all 7 tools with annotations
+   - Fill metadata from the canonical pack at the top of this doc (name, logo
+     512 PNG, descriptions, privacy URL `https://mcp.airtreks.com/privacy`)
+   - Country availability: all countries
+   - No UI screenshots (server has no Apps SDK UI components)
+4. Test prompts with expected responses (the review runs these; copy as-is):
+   - "Plan a round-the-world trip from San Francisco through Tokyo, Bangkok, and London" — `plan_route` returns an ordered itinerary with carrier recommendations per segment and an honest fare range (never a per-itinerary price).
+   - "Is SFO-NRT-BKK-LHR-SFO valid as a Star Alliance RTW routing?" — `route_validate` returns a validity verdict with rule-by-rule reasoning.
+   - "Suggest a 4-stop round-the-world routing through Asia and Europe on Star Alliance" — `route_suggest` returns up to 3 proven routing templates with bookability ratings.
+   - "What's the best connection between Portland and Tokyo?" — `hub_check` returns the best hub routing with proven carrier combinations (flags dead legs if any).
+5. Submit for review. Timeline ~1-2 weeks. Common rejections: connection
+   failures, failed test prompts, annotation mismatches, undisclosed user data.
+6. After approval, hit **Publish** in the portal; the app becomes searchable in
+   the ChatGPT apps directory.
 
 ---
 

@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { ipInCidr, matchPlatform } from "./cidr.js";
+import { ipInCidr, matchPlatform, parseEgressPrefixes, PLATFORM_RANGES } from "./cidr.js";
 
 test("ipInCidr matches inside the Anthropic /21", () => {
   assert.equal(ipInCidr("160.79.104.1", "160.79.104.0/21"), true);
@@ -28,4 +28,27 @@ test("ipInCidr rejects garbage safely", () => {
 test("matchPlatform identifies Anthropic egress", () => {
   assert.equal(matchPlatform("160.79.104.25")?.name, "anthropic");
   assert.equal(matchPlatform("1.2.3.4"), null);
+});
+
+test("matchPlatform identifies OpenAI egress from the snapshot", () => {
+  const openai = PLATFORM_RANGES.find((r) => r.name === "openai");
+  assert.ok(openai && openai.cidrs.length > 0);
+  const sample = openai!.cidrs[0];
+  assert.equal(matchPlatform(sample.split("/")[0])?.name, "openai");
+});
+
+test("parseEgressPrefixes extracts valid IPv4 CIDRs and drops garbage", () => {
+  const body = {
+    creationTime: "2026-07-11T02:09:39",
+    prefixes: [
+      { ipv4Prefix: "20.169.78.48/28" },
+      { ipv4Prefix: "not-a-cidr" },
+      { ipv6Prefix: "2001:db8::/32" },
+      "junk",
+      { ipv4Prefix: 42 },
+    ],
+  };
+  assert.deepEqual(parseEgressPrefixes(body), ["20.169.78.48/28"]);
+  assert.deepEqual(parseEgressPrefixes(null), []);
+  assert.deepEqual(parseEgressPrefixes({ prefixes: "nope" }), []);
 });

@@ -9,7 +9,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 import { checkRateLimit, getRateLimitHeaders } from "./lib/rate-limit.js";
-import { matchPlatform } from "./lib/cidr.js";
+import { matchPlatform, refreshOpenAIRanges } from "./lib/cidr.js";
 import { normalizeCode } from "./data/city-aliases.js";
 import { PRIVACY_HTML } from "./privacy.js";
 import { trackRequest, trackToolCall, trackError, trackRateLimitHit, getStats } from "./lib/stats.js";
@@ -366,6 +366,10 @@ async function startHttp() {
     console.log(`MCP endpoint: http://0.0.0.0:${PORT}/mcp`);
     console.log(`Health check: http://0.0.0.0:${PORT}/health`);
   });
+
+  // OpenAI rotates its published egress ranges; keep the openai bucket current
+  void refreshOpenAIRanges();
+  setInterval(() => void refreshOpenAIRanges(), 24 * 60 * 60 * 1000).unref();
 }
 
 // --- Entry point ---
