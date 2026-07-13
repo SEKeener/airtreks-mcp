@@ -9,6 +9,8 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 import { checkRateLimit, getRateLimitHeaders } from "./lib/rate-limit.js";
+import { matchPlatform } from "./lib/cidr.js";
+import { PRIVACY_HTML } from "./privacy.js";
 import { trackRequest, trackToolCall, trackError, trackRateLimitHit, getStats } from "./lib/stats.js";
 import { lookupKey, registerKey, listKeys } from "./lib/api-keys.js";
 import { routeValidateSchema, routeValidate } from "./tools/route-validate.js";
@@ -41,55 +43,87 @@ function tracked(name: string, fn: (args: any) => any) {
   };
 }
 
+// All routing tools are pure lookups against bundled data (readOnlyHint, closed
+// world). trip_idea_create is the exception: it writes a lead into APEX.
+const READ_ONLY = { readOnlyHint: true, openWorldHint: false };
+
 function registerTools(server: McpServer, includeLeadTools = false) {
-  server.tool(
+  server.registerTool(
     "plan_route",
-    "The primary entry point for any multi-city trip. Give it your cities — it automatically evaluates Star Alliance RTW, oneworld RTW, AND custom mixed-carrier builds, then recommends the best approach. Handles direction detection, backtracking analysis, alliance feasibility, surface sectors, and carrier selection. The customer doesn't need to know if their trip is alliance or custom — this tool figures it out.",
-    planRouteSchema,
+    {
+      title: "Plan a Multi-City Route",
+      description: "The primary entry point for any multi-city trip. Give it your cities — it automatically evaluates Star Alliance RTW, oneworld RTW, AND custom mixed-carrier builds, then recommends the best approach. Handles direction detection, backtracking analysis, alliance feasibility, surface sectors, and carrier selection. The customer doesn't need to know if their trip is alliance or custom — this tool figures it out.",
+      inputSchema: planRouteSchema,
+      annotations: { ...READ_ONLY },
+    },
     tracked("plan_route", planRoute)
   );
 
   if (includeLeadTools) {
-    server.tool(
+    server.registerTool(
       "trip_idea_create",
-      "Create a trip idea in AirTreks APEX system — hands off to a human consultant. Automatically runs plan_route to include full routing analysis, carrier recommendations, and consultant value assessment in the lead. The consultant starts informed, not cold. Use this when the customer is ready to get a real quote.",
-      tripIdeaCreateSchema,
+      {
+        title: "Create a Trip Idea (Consultant Handoff)",
+        description: "Create a trip idea in AirTreks APEX system — hands off to a human consultant. Automatically runs plan_route to include full routing analysis, carrier recommendations, and consultant value assessment in the lead. The consultant starts informed, not cold. Use this when the customer is ready to get a real quote.",
+        inputSchema: tripIdeaCreateSchema,
+        annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true },
+      },
       tracked("trip_idea_create", tripIdeaCreate)
     );
   }
 
-  server.tool(
+  server.registerTool(
     "route_validate",
-    "Validate a multi-city flight routing for feasibility. Checks alliance carrier rules, identifies dead legs, warns about poison carriers, and estimates bookability. Use this before building an itinerary to catch routing problems early.",
-    routeValidateSchema,
+    {
+      title: "Validate a Multi-City Routing",
+      description: "Validate a multi-city flight routing for feasibility. Checks alliance carrier rules, identifies dead legs, warns about poison carriers, and estimates bookability. Use this before building an itinerary to catch routing problems early.",
+      inputSchema: routeValidateSchema,
+      annotations: { ...READ_ONLY },
+    },
     tracked("route_validate", routeValidate)
   );
 
-  server.tool(
+  server.registerTool(
     "route_suggest",
-    "Get suggested multi-stop flight routings based on regions, direction, and alliance preference. Returns up to 3 proven routing templates with bookability ratings. Great for trip planning inspiration.",
-    routeSuggestSchema,
+    {
+      title: "Suggest Multi-Stop Routings",
+      description: "Get suggested multi-stop flight routings based on regions, direction, and alliance preference. Returns up to 3 proven routing templates with bookability ratings. Great for trip planning inspiration.",
+      inputSchema: routeSuggestSchema,
+      annotations: { ...READ_ONLY },
+    },
     tracked("route_suggest", routeSuggest)
   );
 
-  server.tool(
+  server.registerTool(
     "hub_check",
-    "Check the best connection between two airports. Identifies dead legs (routes that fail on alliance fares), suggests hub routing fixes, and shows proven carrier combinations. Essential for transpacific, kangaroo, and intra-Asia routing.",
-    hubCheckSchema,
+    {
+      title: "Check Airport Hub Connections",
+      description: "Check the best connection between two airports. Identifies dead legs (routes that fail on alliance fares), suggests hub routing fixes, and shows proven carrier combinations. Essential for transpacific, kangaroo, and intra-Asia routing.",
+      inputSchema: hubCheckSchema,
+      annotations: { ...READ_ONLY },
+    },
     tracked("hub_check", hubCheck)
   );
 
-  server.tool(
+  server.registerTool(
     "fare_product_match",
-    "Recommend the best fare product type for a route — RTW, Circle Pacific, Circle Atlantic, Open Jaw, or Custom Multi-City. Considers stop count, direction, and backtracking to match the right alliance fare structure.",
-    fareProductMatchSchema,
+    {
+      title: "Match the Right Fare Product",
+      description: "Recommend the best fare product type for a route — RTW, Circle Pacific, Circle Atlantic, Open Jaw, or Custom Multi-City. Considers stop count, direction, and backtracking to match the right alliance fare structure.",
+      inputSchema: fareProductMatchSchema,
+      annotations: { ...READ_ONLY },
+    },
     tracked("fare_product_match", fareProductMatch)
   );
 
-  server.tool(
+  server.registerTool(
     "custom_route_build",
-    "Break a complex multi-city itinerary into individually-ticketable segments with carrier recommendations. Handles routes that don't fit alliance fare rules — mixed carriers, LCCs, Gulf bridge connections, surface sectors. This is how AirTreks consultants build 90% of itineraries. Use this for any route with 4+ stops, backtracking, or region combinations that alliance fares can't cover.",
-    customRouteBuildSchema,
+    {
+      title: "Build a Custom Segmented Route",
+      description: "Break a complex multi-city itinerary into individually-ticketable segments with carrier recommendations. Handles routes that don't fit alliance fare rules — mixed carriers, LCCs, Gulf bridge connections, surface sectors. This is how AirTreks consultants build 90% of itineraries. Use this for any route with 4+ stops, backtracking, or region combinations that alliance fares can't cover.",
+      inputSchema: customRouteBuildSchema,
+      annotations: { ...READ_ONLY },
+    },
     tracked("custom_route_build", customRouteBuild)
   );
 }
@@ -222,9 +256,12 @@ async function startHttp() {
         // Track by key email or IP
         trackRequest(keyRecord?.email || ip);
 
-        // Rate limit: API key uses key's limit, anonymous uses IP-based 100/day
-        const bucketKey = keyRecord ? keyRecord.key : `ip:${ip}`;
-        const dailyLimit = keyRecord ? keyRecord.dailyLimit : 100;
+        // Rate limit: API key uses key's limit; known AI-platform egress ranges
+        // (all users behind a few IPs) share one big platform bucket; other
+        // anonymous traffic uses IP-based 100/day
+        const platform = keyRecord ? null : matchPlatform(ip);
+        const bucketKey = keyRecord ? keyRecord.key : platform ? `platform:${platform.name}` : `ip:${ip}`;
+        const dailyLimit = keyRecord ? keyRecord.dailyLimit : platform ? platform.dailyLimit : 100;
         const rl = checkRateLimit(bucketKey, dailyLimit);
 
         if (!rl.allowed) {
@@ -282,6 +319,13 @@ async function startHttp() {
       return;
     }
 
+    // Privacy policy (required for AI connector directory listings)
+    if (url.pathname === "/privacy") {
+      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+      res.end(PRIVACY_HTML);
+      return;
+    }
+
     // Root — info page
     if (url.pathname === "/") {
       res.writeHead(200, { "Content-Type": "application/json" });
@@ -295,6 +339,7 @@ async function startHttp() {
         rate_limit: "100 requests/day (free), higher with API key",
         register: "POST /register with {\"email\": \"you@example.com\"}",
         docs: "https://github.com/SEKeener/airtreks-mcp",
+        privacy: "https://mcp.airtreks.com/privacy",
       }));
       return;
     }
