@@ -77,3 +77,11 @@ export function revokeKey(key: string): boolean {
   save();
   return true;
 }
+
+export function revokeKeysByEmail(email: string): number {
+  load();
+  const matches = store.keys.filter((k) => k.email === email && k.enabled);
+  for (const k of matches) k.enabled = false;
+  if (matches.length) save();
+  return matches.length;
+}

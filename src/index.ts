@@ -12,7 +12,7 @@ import { checkRateLimit, getRateLimitHeaders } from "./lib/rate-limit.js";
 import { matchPlatform, refreshOpenAIRanges } from "./lib/cidr.js";
 import { PRIVACY_HTML } from "./privacy.js";
 import { trackRequest, trackToolCall, trackError, trackRateLimitHit, getStats } from "./lib/stats.js";
-import { lookupKey, registerKey, listKeys } from "./lib/api-keys.js";
+import { lookupKey, registerKey, listKeys, revokeKey, revokeKeysByEmail } from "./lib/api-keys.js";
 import { TOOLS, normalizeCityArgs } from "./tools/registry.js";
 import { handleRest } from "./rest.js";
 
@@ -166,6 +166,31 @@ async function startHttp() {
       if (!secret || provided !== secret) {
         res.writeHead(401, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ error: "Unauthorized" }));
+        return;
+      }
+      // DELETE /keys with {"key": "at_..."} or {"email": "..."} revokes (AIR-458)
+      if (req.method === "DELETE") {
+        let body = "";
+        for await (const chunk of req) body += chunk;
+        try {
+          const { key, email } = JSON.parse(body);
+          if (!key && !email) {
+            res.writeHead(400, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ error: "Provide \"key\" or \"email\" in the JSON body" }));
+            return;
+          }
+          const revoked = key ? (revokeKey(key) ? 1 : 0) : revokeKeysByEmail(email);
+          if (revoked === 0) {
+            res.writeHead(404, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ error: "No matching key" }));
+            return;
+          }
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ revoked }));
+        } catch {
+          res.writeHead(400, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: "Invalid JSON body. Send {\"key\": \"at_...\"} or {\"email\": \"user@example.com\"}" }));
+        }
         return;
       }
       res.writeHead(200, { "Content-Type": "application/json" });
