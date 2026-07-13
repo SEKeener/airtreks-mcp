@@ -311,7 +311,9 @@ async function startHttp() {
         return;
       }
 
-      res.writeHead(400, { "Content-Type": "application/json" });
+      // MCP spec: 404 for unknown/expired sessions tells clients to silently
+      // re-initialize; 400 surfaces as a hard tool error mid-conversation (AIR-497)
+      res.writeHead(404, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: "Invalid or expired session. Send an initialize request without a session ID to start a new session." }));
       return;
     }
